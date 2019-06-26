@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>xterm.js WEBSSH</title>
+    <link rel="stylesheet" href="/xterm.js/3.14.2/xterm.css" />
+    <script src="/xterm.js/3.14.2/xterm.js"></script>
+    <script src="/xterm.js/3.14.2/addons/attach/attach.js"></script>
+</head>
+
+<body>
+    <div id="terminal"></div>
+    <script>
+        var host = '';
+        if (host == '') {
+            alert('host is empty');
+            throw new Error();
+        }
+
+        var isTls = window.location.protocol == 'https:';
+        var socket = new WebSocket((isTls ? 'wss' : 'ws') + ':' + host + '/');
+        var cols = Math.floor((window.innerWidth - 27) / 9);
+        var rows = Math.floor((window.innerHeight - 27) / 18);
+        var str2bytes = function (str) {
+            var utf8 = unescape(encodeURIComponent(str));
+            var arr = [];
+            for (var i = 0; i < utf8.length; i++) {
+                arr.push(utf8.charCodeAt(i));
+            }
+            return new Uint8Array(arr);
+        }
+        var connected = false;
+        socket.onopen = function () {
+            connected = true;
+            term.attach(socket);
+            socket.send(str2bytes(["resize", cols, rows].join(',')))
+        };
+        socket.onclose = function (e) {
+            if (term != null) {
+                alert('连接已断开');
+                term.destroy();
+                term = null;
+            }
+        };
+        socket.onerror = function (e) {
+            if (!connected) {
+                alert('连接失败');
+            } else {
+                alert('发生错误');
+            }
+            if (term != null) {
+                term.destroy();
+                term = null;
+            }
+        };
+        Terminal.applyAddon(attach);
+        var term = new Terminal({
+            cursorBlink: true
+        });
+        term.open(document.getElementById('terminal'));
+        var resizeTerm = function () {
+            var cols = Math.floor((window.innerWidth - 27) / 9);
+            var rows = Math.floor((window.innerHeight - 27) / 18);
+            term.resize(cols, rows);
+            if (socket != null && socket.readyState == socket.OPEN) {
+                socket.send(str2bytes(["resize", cols, rows].join(',')))
+            }
+        };
+        resizeTerm();
+        window.addEventListener('resize', function () {
+            resizeTerm();
+        });
+    </script>
+</body>
+
+</html>
